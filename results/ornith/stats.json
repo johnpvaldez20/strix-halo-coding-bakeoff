@@ -1,0 +1,84 @@
+{
+  "model": "ornith",
+  "run_dir": "2026-10-26-19-40-28--bakeoff-ornith-diff-all",
+  "languages": "all",
+  "expected": 225,
+  "crashed": 0,
+  "crashed_exercises": [],
+  "tries": 2,
+  "completed": 225,
+  "pass_num_1": 107,
+  "pass_rate_1": 47.6,
+  "pass_num_2": 181,
+  "pass_rate_2": 80.4,
+  "num_with_malformed_responses": 8,
+  "percent_cases_well_formed": 96.4,
+  "error_outputs": 29,
+  "num_malformed_responses": 8,
+  "user_asks": 96,
+  "exhausted_context_windows": 20,
+  "test_timeouts": 0,
+  "lazy_comments": 0,
+  "syntax_errors": 0,
+  "indentation_errors": 0,
+  "prompt_tokens": 1982210,
+  "completion_tokens": 2580093,
+  "total_hours": 50.93,
+  "seconds_per_case": 814.8,
+  "complete": true,
+  "by_language": {
+    "cpp": {
+      "completed": 26,
+      "pass_rate_1": 38.5,
+      "pass_rate_2": 76.9,
+      "percent_cases_well_formed": 96.2
+    },
+    "go": {
+      "completed": 39,
+      "pass_rate_1": 56.4,
+      "pass_rate_2": 87.2,
+      "percent_cases_well_formed": 100.0
+    },
+    "java": {
+      "completed": 47,
+      "pass_rate_1": 36.2,
+      "pass_rate_2": 68.1,
+      "percent_cases_well_formed": 95.7
+    },
+    "javascript": {
+      "completed": 49,
+      "pass_rate_1": 51.0,
+      "pass_rate_2": 89.8,
+      "percent_cases_well_formed": 98.0
+    },
+    "python": {
+      "completed": 34,
+      "pass_rate_1": 50.0,
+      "pass_rate_2": 85.3,
+      "percent_cases_well_formed": 97.1
+    },
+    "rust": {
+      "completed": 30,
+      "pass_rate_1": 53.3,
+      "pass_rate_2": 73.3,
+      "percent_cases_well_formed": 90.0
+    }
+  },
+  "aider_variants": {
+    "model": [
+      "openai/bakeoff-ornith"
+    ],
+    "edit_format": [
+      "diff"
+    ],
+    "commit_hash": [
+      "5dc9490"
+    ]
+  },
+  "desc": "Ornith-1.5-122B MoE Q6_K",
+  "edit_format": "diff",
+  "ctx": "65536",
+  "sampling": "temp 0.6 top_p 0.95 top_k 20 min_p 0.0",
+  "threads": "1",
+  "aider_run_dir": "work/aider/tmp.benchmarks/2026-10-26-19-40-28--bakeoff-ornith-diff-all"
+}

@@ -1,6 +1,6 @@
 # Ornith-1.5-122B Q6_K: Aider Polyglot results
 
-TODO: add `stats.json` and `per_exercise.csv` from the test machine
+`stats.json` and `per_exercise.csv` are the run's summary and per-exercise results.
 (`~/bakeoff/results/ornith/`). Pending; not yet copied in. Scrub usernames, home paths, LAN
 IPs and hostnames before committing them.
 

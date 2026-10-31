@@ -92,18 +92,18 @@ From `results/ornith/stats.json`:
 
 Per language:
 
-<!-- TODO: fill from results/ornith/stats.json "by_language" -->
 | Language | Completed | pass_rate_1 % | pass_rate_2 % | Well-formed % |
 |---|---|---|---|---|
-| cpp | TODO | TODO | TODO | TODO |
-| go | TODO | TODO | TODO | TODO |
-| java | TODO | TODO | TODO | TODO |
-| javascript | TODO | TODO | TODO | TODO |
-| python | TODO | TODO | TODO | TODO |
-| rust | TODO | TODO | TODO | TODO |
+| cpp | 26 | 38.5 | 76.9 | 96.2 |
+| go | 39 | 56.4 | 87.2 | 100.0 |
+| java | 47 | 36.2 | 68.1 | 95.7 |
+| javascript | 49 | 51.0 | 89.8 | 98.0 |
+| python | 34 | 50.0 | 85.3 | 97.1 |
+| rust | 30 | 53.3 | 73.3 | 90.0 |
 
 Context limit: 20 exhausted context windows occurred at the 65536-token context used for all
-models. <!-- TODO: verify against per_exercise.csv: "These cluster in cpp and java." -->
+models. They fall in cpp (10, of which 2 failed), java (6, all failed), javascript (3, all failed)
+and go (1, failed): 12 of Ornith's 44 failures were exercises that hit the context limit.
 Exercises that hit the limit likely lost points, so a larger context would be a fairer
 setting. The same context is used for every model in this run.
 

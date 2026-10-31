@@ -72,7 +72,40 @@ at equal precision".
 | MiniMax-M2.5 UD-Q3_K_XL | pending | - | - | - | - | - | - |
 
 Times are US Central (CT). Per-model `stats.json` and `per_exercise.csv` go in
-`results/<model>/` (see `results/ornith/README.md`).
+`results/<model>/`.
+
+### Ornith-1.5-122B Q6_K details
+
+From `results/ornith/stats.json`:
+
+| Metric | Value |
+|---|---|
+| Exhausted context windows (at `-c 65536`) | 20 |
+| Error outputs | 29 |
+| Malformed responses | 8 |
+| User asks | 96 |
+| Test timeouts | 0 |
+| Prompt tokens | 1,982,210 |
+| Completion tokens | 2,580,093 |
+| Total exercise time | 50.93 h |
+| Time per exercise | 814.8 s |
+
+Per language:
+
+<!-- TODO: fill from results/ornith/stats.json "by_language" -->
+| Language | Completed | pass_rate_1 % | pass_rate_2 % | Well-formed % |
+|---|---|---|---|---|
+| cpp | TODO | TODO | TODO | TODO |
+| go | TODO | TODO | TODO | TODO |
+| java | TODO | TODO | TODO | TODO |
+| javascript | TODO | TODO | TODO | TODO |
+| python | TODO | TODO | TODO | TODO |
+| rust | TODO | TODO | TODO | TODO |
+
+Context limit: 20 exhausted context windows occurred at the 65536-token context used for all
+models. <!-- TODO: verify against per_exercise.csv: "These cluster in cpp and java." -->
+Exercises that hit the limit likely lost points, so a larger context would be a fairer
+setting. The same context is used for every model in this run.
 
 ## Part 2: custom Rust project (pending)
 

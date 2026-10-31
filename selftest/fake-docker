@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Fake docker for the selftest. Emulates just enough of `docker run` for 10-aider-bench.sh:
+# maps the -v mounts, then plays benchmark.py: one chat request per exercise to the
+# (fake) server, writes .aider.results.json. FAKE_CRASH_FIRST=N makes the first pass
+# record N exercises as exceptions, to prove resume/purge works.
+set -euo pipefail
+cmd="$1"; shift
+case "$cmd" in
+  image) exit 0 ;;
+  build) exit 0 ;;
+  stop) exit 0 ;;
+  run) ;;
+  *) echo "fake-docker: unsupported $cmd" >&2; exit 2 ;;
+esac
+declare -A mounts=()
+envfile=""
+while (($#)); do
+  case "$1" in
+    -v) IFS=: read -r h c _ <<<"$2"; mounts[$c]="$h"; shift 2 ;;
+    --env-file) envfile="$2"; shift 2 ;;
+    --name|--network|--memory|--memory-swap|-w|--user|-e|--pids-limit) shift 2 ;;
+    --rm|--init|-it) shift ;;
+    *) break ;;
+  esac
+done
+shift  # image name
+[[ "$1" == bash && "$2" == /kit/aider_in_container.sh ]] || { echo "fake-docker: unexpected command $*" >&2; exit 2; }
+shift 2
+run_name="$1"; shift
+set -a
+# shellcheck disable=SC1090
+source "$envfile"
+set +a
+B="${mounts[/benchmarks]}"
+settings="" langs="" model=""
+while (($#)); do
+  case "$1" in
+    --read-model-settings) settings="${2/#\/benchmarks/$B}"; shift 2 ;;
+    --languages) langs="$2"; shift 2 ;;
+    --tries) shift 2 ;;
+    --model) model="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+[[ -f "$settings" ]] || { echo "settings missing: $settings" >&2; exit 1; }
+grep -q "name: $model" "$settings" || { echo "settings do not name $model" >&2; exit 1; }
+shopt -s nullglob
+dirs=("$B"/*--"$run_name")
+if ((${#dirs[@]} == 0)); then
+  d="$B/$(date +%Y-%m-%d-%H-%M-%S)--$run_name"
+  mkdir -p "$d"
+  cp -r "$B/polyglot-benchmark/." "$d/"
+else
+  d="${dirs[0]}"
+fi
+python3 "${mounts[/kit]}/purge_exceptions.py" "$d"
+crash="${FAKE_CRASH_FIRST:-0}"
+marker="$d/.fake-crashed-once"
+n=0
+for ex in "$d"/*/exercises/practice/*/; do
+  lang="$(basename "$(dirname "$(dirname "$(dirname "$ex")")")")"
+  if [[ -n "$langs" && ",$langs," != *",$lang,"* ]]; then continue; fi
+  [[ -f "$ex/.aider.results.json" ]] && continue
+  n=$((n + 1))
+  if [[ ! -f "$marker" && $n -le $crash ]]; then
+    echo '{"exception": "litellm.APIConnectionError: fake"}' >"$ex/.aider.results.json"; continue
+  fi
+  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $OPENAI_API_KEY" -H 'Content-Type: application/json' \
+    -d '{"messages":[{"role":"user","content":"solve"}],"temperature":0.6,"top_k":20,"min_p":0}' "$OPENAI_API_BASE/chat/completions")
+  [[ "$code" == 200 ]] || { echo "server returned $code" >&2; exit 1; }
+  h=$(( $(cksum <<<"$ex$model" | cut -d' ' -f1) % 4 ))
+  case $h in 0) out='[true]' ;; 1) out='[false, true]' ;; 2) out='[false, false]' ;; *) out='[true]' ;; esac
+  mal=$(( h == 2 ? 1 : 0 ))
+  printf '{"testdir": "%s", "testcase": "%s", "model": "%s", "edit_format": "diff", "tests_outcomes": %s, "cost": 0, "duration": 12.5, "test_timeouts": 0, "num_error_outputs": %d, "num_user_asks": 0, "num_exhausted_context_windows": 0, "num_malformed_responses": %d, "lazy_comments": 0, "syntax_errors": 0, "indentation_errors": 0, "prompt_tokens": 100, "completion_tokens": 50, "commit_hash": "fake"}\n' \
+    "$ex" "$(basename "$ex")" "$model" "$out" "$mal" "$mal" >"$ex/.aider.results.json"
+done
+touch "$marker"
+echo "fake benchmark done: $d"

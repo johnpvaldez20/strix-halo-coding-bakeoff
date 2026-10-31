@@ -1,0 +1,107 @@
+#!/usr/bin/python3
+"""Fake llama-server for the selftest. Named llama-server so `pgrep -x llama-server` sees it.
+Accepts the real flags it cares about; ignores the rest. /health is 503 for LOAD_DELAY seconds."""
+import json
+import os
+import sys
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+args = sys.argv[1:]
+def opt(name, default=None):
+    return args[args.index(name) + 1] if name in args else default
+
+host, port = opt("--host", "127.0.0.1"), int(opt("--port", "8080"))
+alias = opt("--alias", "model")
+key = Path(opt("--api-key-file")).read_text().strip().splitlines()[0].strip()
+model = opt("-m")
+if not model or not Path(model).exists():
+    print(f"error: model not found: {model}", file=sys.stderr)
+    sys.exit(1)
+t0 = time.time()
+LOAD_DELAY = float(os.environ.get("FAKE_LOAD_DELAY", "2"))
+REF = Path(os.environ["FAKE_REF_DIR"])
+print(f"fake llama-server {alias} on {host}:{port} args={args}", flush=True)
+
+
+def answer_custom(variant):
+    files = {
+        "Cargo.toml": (REF / "Cargo.toml").read_text(),
+        "src/lib.rs": (REF / "src/lib.rs").read_text(),
+        "DESIGN.md": "Sharded mutex LRU with a per-shard in-flight map. " * 10 + "\n",
+        "tests/basic.rs": "use flightcache::*;\n\n#[test]\nfn builds() {\n    assert!(Cache::<u8, u8>::new(CacheConfig {\n        capacity: 1,\n        shards: 1,\n        ttl: None\n    })\n    .is_ok());\n}\n",
+    }
+    if variant == "broken":  # remove purge_expired -> hidden suite fails to compile
+        lib = files["src/lib.rs"]
+        i = lib.index("    /// Purge.")
+        j = lib.index("    /// Stats.")
+        files["src/lib.rs"] = lib[:i] + lib[j:]
+    out = ["Here is the crate.\n"]
+    for path, body in files.items():
+        if variant == "fenced":
+            body = "```rust\n" + body + "```\n"
+        out.append(f"=== FILE: {path} ===\n{body}=== END FILE ===\n")
+    if variant == "fenced":
+        out.append("=== FILE: ../escape.txt ===\nnope\n=== END FILE ===\n")
+    return "\n".join(out)
+
+
+class H(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        sys.stdout.write("%s\n" % (a[0] % a[1:]))
+        sys.stdout.flush()
+
+    def send(self, code, obj):
+        b = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def authed(self):
+        if self.headers.get("Authorization") != f"Bearer {key}":
+            self.send(401, {"error": {"message": "Invalid API Key"}})
+            return False
+        return True
+
+    def do_GET(self):
+        if self.path == "/health":
+            if time.time() - t0 < LOAD_DELAY:
+                return self.send(503, {"error": {"message": "Loading model"}})
+            return self.send(200, {"status": "ok"})
+        if self.path == "/v1/models" and self.authed():
+            return self.send(200, {"object": "list", "data": [{"id": alias, "object": "model"}]})
+        if not self.path.startswith("/v1/models"):
+            self.send(404, {"error": "nf"})
+
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length", "0"))
+        req = json.loads(self.rfile.read(n) or b"{}")
+        if self.path != "/v1/chat/completions":
+            return self.send(404, {"error": "nf"})
+        if not self.authed():
+            return
+        with open(os.environ.get("FAKE_REQ_LOG", "/dev/null"), "a") as fh:
+            fh.write(json.dumps({"alias": alias, "keys": sorted(req), "temperature": req.get("temperature"),
+                                 "top_k": req.get("top_k"), "min_p": req.get("min_p")}) + "\n")
+        prompt = req["messages"][-1]["content"]
+        if "flightcache" in prompt:
+            variant = {"bakeoff-qwen": "clean", "bakeoff-ornith": "fenced"}.get(alias, "broken")
+            content = answer_custom(variant)
+        else:
+            content = "ok"
+        self.send(200, {
+            "id": "x", "object": "chat.completion", "model": alias,
+            "choices": [{"index": 0, "finish_reason": "stop",
+                         "message": {"role": "assistant", "content": content,
+                                     "reasoning_content": "thinking about it"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": len(content) // 4, "total_tokens": 0},
+            "timings": {"predicted_per_second": 4.2},
+        })
+
+
+ThreadingHTTPServer((host, port), H).serve_forever()
